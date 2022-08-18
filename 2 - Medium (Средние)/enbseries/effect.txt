@@ -1,0 +1,482 @@
+
+/* VERSION 2.0 */
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//      /XXXXXXX\          __                  |HHHHHHHHH\                                          \HH\     /HH/    // 
+//     |XX|   |XX|         XX                  |HH|    \HHH\   /\                                    \HH\   /HH/     //
+//     |XX|    |X|        /XX\                 |HH|      \HH\  \/                                     \HH\ /HH/      //
+//      \XX\             /XXXX\                |HH|       |HH| __ __  __     ___     ___      __       \HHHHH/       //
+//       \XX\           /XX/\XX\               |HH|       |HH| || || /__\   /___\   /___\   __||__      \HHH/        //
+//     _   \XX\        /XX/  \XX\              |HH|       |HH| || ||//  \\ //   \\ //   \\ |==  ==|     /HHH\        //
+//    |X|    \XX\     /XXXXXXXXXX\             |HH|       |HH| || ||/      ||===|| ||    -    ||       /HHHHH\       //
+//    \XX\    |XX|   /XX/      \XX\            |HH|      /HH/  || ||       ||      ||         ||      /HH/ \HH\      // 
+//     \XX\   /XX/  /XX/        \XX\  ________ |HH|    /HHH/   || ||       \\    _ \\    _    ||  _  /HH/   \HH\     //
+//      \XXXXXXX/  /XX/          \XX\|________||HHHHHHHHH/     || ||        \===//  \===//    \\=// /HH/     \HH\    //
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//++++++++++++++++++++++++++++++++++            ENBSeries effect file              ++++++++++++++++++++++++++++++++++//
+//++++++++++++++++++++++++++++++++++      SA_DirectX by Maxim Dubinov(Makarus)     ++++++++++++++++++++++++++++++++++//
+//++++++++++++++++++++++++++++++++++    Visit http://www.facebook.com/sadirectx    ++++++++++++++++++++++++++++++++++//
+//+++++++++++++++++++++++++    https://www.youtube.com/channel/UCrASy-x5DgwHpYiDv41RL2Q    ++++++++++++++++++++++++++//
+//++++++++++++++++++++++++++++++++++          Visit http://enbdev.com              ++++++++++++++++++++++++++++++++++//
+//++++++++++++++++++++++++++++++++++    Copyright (c) 2007-2018 Boris Vorontsov    ++++++++++++++++++++++++++++++++++//
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+float4 tempF1; float4 tempF2; float4 tempF3; 
+float4 ScreenSize; float4 Timer; float FadeFactor;
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//textures
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+texture2D texColor;
+texture2D texDepth;
+texture2D texNoise;
+texture2D texPalette;
+texture2D texFocus; //computed focusing depth
+texture2D texCurr; //4*4 texture for focusing
+texture2D texPrev; //4*4 texture for focusing
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+//Sampler Inputs
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+sampler2D SamplerColor = sampler_state
+{
+	Texture   = <texColor>;
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = NONE;//NONE;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+sampler2D InputSampler = sampler_state
+{
+    Texture = (texColor);
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    AddressU   = Clamp;
+	AddressV   = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+sampler2D SamplerDepth = sampler_state
+{
+	Texture   = <texDepth>;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = NONE;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+sampler2D SamplerNoise = sampler_state
+{
+	Texture   = <texNoise>;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = NONE;//NONE;
+	AddressU  = Wrap;
+	AddressV  = Wrap;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+sampler2D SamplerPalette = sampler_state
+{
+	Texture   = <texPalette>;
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = NONE;//NONE;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+//for focus computation
+sampler2D SamplerCurr = sampler_state
+{
+	Texture   = <texCurr>;
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR;//NONE;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+//for focus computation
+sampler2D SamplerPrev = sampler_state
+{
+	Texture   = <texPrev>;
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = NONE;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+//for dof only in PostProcess techniques
+sampler2D SamplerFocus = sampler_state
+{
+	Texture   = <texFocus>;
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = NONE;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+	SRGBTexture=FALSE;
+	MaxMipLevel=0;
+	MipMapLodBias=0;
+};
+
+struct VS_OUTPUT_POST
+{
+	float4 vpos  : POSITION;
+	float2 txcoord : TEXCOORD0;
+};
+
+struct VS_INPUT_POST
+{
+	float3 pos  : POSITION;
+	float2 txcoord : TEXCOORD0;
+};
+
+struct VS_OUTPUT_POST_SSAA
+{
+	float4 vpos : POSITION;
+	float2 uv[5] : TEXCOORD0;
+};
+
+struct VS_OUTPUT_POST_NFAA
+{
+	float4 vpos : POSITION;
+	float2 uv[8] : TEXCOORD0;
+};
+
+////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////SA_DirectX/////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+float2 texel = {0.0009765625,0.00130208333333333333333333333333};
+
+float	ChromaticAmount
+<
+        string UIName="ChromaticAmount";
+        string UIWidget="Spinner";
+        float UIMin=0.0;
+        float UIMax=1.0;
+> = {0.01};
+
+float	LensSize
+<
+        string UIName="LensSize";
+        string UIWidget="Spinner";
+        float UIMin=0.0;
+        float UIMax=80.0;
+> = {0.54};
+
+float	LensDistortion
+<
+        string UIName="LensDistortion";
+        string UIWidget="Spinner";
+        float UIMin=-1.0;
+        float UIMax=1.0;
+> = {0.27};
+
+float	EVignetteAmount
+<
+        string UIName="EVignetteAmount";
+        string UIWidget="Spinner";
+        float UIMin=0.0;
+        float UIMax=2.0;
+> = {0.6};
+
+float	EVignetteCurve
+<
+        string UIName="EVignetteCurve";
+        string UIWidget="Spinner";
+        float UIMin=0.0;
+        float UIMax=2.0;
+> = {1.0};
+
+float	EVignetteRadius
+<
+        string UIName="EVignetteRadius";
+        string UIWidget="Spinner";
+        float UIMin=0.0;
+        float UIMax=2.0;
+> = {1.4};
+
+float3	EVignetteColor = float3(0.0, 0.0, 0.0);
+
+
+////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////SA_DirectX/////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+VS_OUTPUT_POST VS_PostProcess(VS_INPUT_POST IN)
+{
+	VS_OUTPUT_POST OUT;
+
+	float4 pos=float4(IN.pos.x,IN.pos.y,IN.pos.z,1.0);
+
+	OUT.vpos=pos;
+	OUT.txcoord.xy=IN.txcoord.xy;
+
+	return OUT;
+}
+
+float Luminance( float3 c )
+{
+	return dot( c, float3(0.22, 0.707, 0.071) );
+}
+
+float vignette(float2 coord, float _int)
+{
+	float2 coords = coord;
+	coords = (coords - 0.5) * 2.0;		
+	float coordDot = dot (coords,coords);	
+	return 1.0 - coordDot * _int * 0.1;
+}
+
+
+struct VS_OUTPUT_POST_FXAA 
+{
+	float4 vpos : SV_POSITION;
+	float2 uv : TEXCOORD0;
+	float4 interpolatorA : TEXCOORD1;
+	float4 interpolatorB : TEXCOORD2;
+	float4 interpolatorC : TEXCOORD3;
+};
+
+VS_OUTPUT_POST_FXAA VS_PostProcessFXAA (VS_INPUT_POST v)
+{
+	VS_OUTPUT_POST_FXAA o;
+	float4 pos=float4(v.pos.x,v.pos.y,v.pos.z,1.0);
+	o.vpos=pos;
+	
+	o.uv = v.txcoord.xy;
+	
+	float4 extents;
+	float2 offset = ( texel.xy ) * 0.5f;
+	extents.xy = v.txcoord.xy - offset;
+	extents.zw = v.txcoord.xy + offset;
+
+	float4 rcpSize;
+	rcpSize.xy = -texel.xy * 0.5f;
+	rcpSize.zw = texel.xy * 0.5f;			
+	
+	o.interpolatorA = extents;
+	o.interpolatorB = rcpSize;
+	o.interpolatorC = rcpSize;
+	
+	o.interpolatorC.xy *= 4.0;
+	o.interpolatorC.zw *= 4.0;
+	
+	return o;
+}
+
+#define FxaaTexTop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
+
+inline float TexLuminance( float2 uv )
+{
+	return Luminance(FxaaTexTop(InputSampler, uv).rgb);
+}
+
+float3 FxaaPixelShader(float2 pos, float4 extents, float4 rcpSize, float4 rcpSize2)
+{
+	float lumaNw = TexLuminance(extents.xy);
+	float lumaSw = TexLuminance(extents.xw);
+	float lumaNe = TexLuminance(extents.zy);
+	float lumaSe = TexLuminance(extents.zw);
+	
+	float3 centre = FxaaTexTop(InputSampler, pos).rgb;
+	float lumaCentre = Luminance(centre);
+	
+	float lumaMaxNwSw = max( lumaNw , lumaSw );
+	lumaNe += 1.0/384.0;
+	float lumaMinNwSw = min( lumaNw , lumaSw );
+	
+	float lumaMaxNeSe = max( lumaNe , lumaSe );
+	float lumaMinNeSe = min( lumaNe , lumaSe );
+	
+	float lumaMax = max( lumaMaxNeSe, lumaMaxNwSw );
+	float lumaMin = min( lumaMinNeSe, lumaMinNwSw );
+	
+	float lumaMaxScaled = lumaMax * 0.6;
+	
+	float lumaMinCentre = min( lumaMin , lumaCentre );
+	float lumaMaxScaledClamped = max( 0.0 , lumaMaxScaled );
+	float lumaMaxCentre = max( lumaMax , lumaCentre );
+	float dirSWMinusNE = lumaSw - lumaNe;
+	float lumaMaxCMinusMinC = lumaMaxCentre - lumaMinCentre;
+	float dirSEMinusNW = lumaSe - lumaNw;
+	
+	if(lumaMaxCMinusMinC < lumaMaxScaledClamped)
+		return centre;
+	
+	float2 dir;
+	dir.x = dirSWMinusNE + dirSEMinusNW;
+	dir.y = dirSWMinusNE - dirSEMinusNW;
+	
+	dir = normalize(dir);			
+	float3 col1 = FxaaTexTop(InputSampler, pos.xy - dir * rcpSize.zw).rgb;
+	float3 col2 = FxaaTexTop(InputSampler, pos.xy + dir * rcpSize.zw).rgb;
+	
+	float dirAbsMinTimesC = min( abs( dir.x ) , abs( dir.y ) ) * 10.0;
+	dir = clamp(dir.xy/dirAbsMinTimesC, -2.0, 2.0);
+	
+	float3 col3 = FxaaTexTop(InputSampler, pos.xy - dir * rcpSize2.zw).rgb;
+	float3 col4 = FxaaTexTop(InputSampler, pos.xy + dir * rcpSize2.zw).rgb;
+	
+	float3 rgbyA = col1 + col2;
+	float3 rgbyB = ((col3 + col4) * 0.25) + (rgbyA * 0.25);
+	
+	if((Luminance(rgbyA) < lumaMin) || (Luminance(rgbyB) > lumaMax))
+		return rgbyA * 0.5;
+	else
+		return rgbyB;
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////SA_DirectX/////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+float4 PS_PostProcess2(VS_OUTPUT_POST IN, float2 vPos : VPOS) : COLOR
+{
+float4 res;
+float4 coord=0.0;
+
+coord.xy=IN.txcoord.xy;
+float4 origcolor;
+
+coord.w=0.0;
+
+
+origcolor=tex2Dlod(SamplerColor, coord);
+
+
+float2 offset[8]=
+{
+ float2(1.0, 1.0),
+ float2(-1.0, -1.0),
+ float2(-1.0, 1.0),
+ float2(1.0, -1.0),
+
+ float2(1.41, 0.0),
+ float2(-1.41, 0.0),
+ float2(0.0, 1.41),
+ float2(0.0, -1.41)
+};
+int i=0;
+
+float4 tcol=origcolor;
+float2 invscreensize=1.0/ScreenSize;
+invscreensize.y=invscreensize.y/ScreenSize.z;
+
+
+float3 eta = float3(1.0+(-ChromaticAmount*0.1)*0.9,1.0+(-ChromaticAmount*0.1)*0.6,1.0+(-ChromaticAmount*0.1)*0.3);
+float2 center;
+center.x = coord.x-0.5;
+center.y = coord.y-0.5;
+float LensZoom = 1.0/LensSize;
+
+float r2 = (IN.txcoord.x-0.5) * (IN.txcoord.x-0.5) + (IN.txcoord.y-0.5) * (IN.txcoord.y-0.5);     
+float f = 0;
+
+if( 0.0 == 0.0){
+	f = 1 + r2 * LensDistortion;
+}else{
+                f = 1 + r2 * (LensDistortion + 0.0 * sqrt(r2));
+};
+
+float x = f*LensZoom*(coord.x-0.5)+0.5;
+float y = f*LensZoom*(coord.y-0.5)+0.5;
+float2 rCoords = (f*eta.r)*LensZoom*(center.xy*0.5)+0.5;
+float2 gCoords = (f*eta.g)*LensZoom*(center.xy*0.5)+0.5;
+float2 bCoords = (f*eta.b)*LensZoom*(center.xy*0.5)+0.5;
+
+float4 inputDistord = float4(tex2D(SamplerColor,rCoords).r , tex2D(SamplerColor,gCoords).g ,tex2D(SamplerColor,bCoords).b, tex2D(SamplerColor,float2(x,y)).a);
+return float4(inputDistord.r,inputDistord.g,inputDistord.b,1);
+
+res.w=1.0;
+return res;
+}
+
+
+float4 FXAA (VS_OUTPUT_POST_FXAA i, float2 vPos : VPOS) : COLOR
+{
+	float3 color = FxaaPixelShader(i.uv, i.interpolatorA, i.interpolatorB, i.interpolatorC);
+	return float4(color, 1.0);
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////SA_DirectX/////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+float4 PS_Vignette(VS_OUTPUT_POST IN, float2 vPos : VPOS) : COLOR
+{
+	float4	res;
+	float3	origcolor=tex2D(SamplerColor, IN.txcoord.xy);
+
+	float2	uv=(IN.txcoord.xy-0.5)*EVignetteRadius;
+	float	vignette=saturate(dot(uv.xy, uv.xy));
+	vignette=pow(vignette, EVignetteCurve);
+	res.xyz=lerp(origcolor.xyz, EVignetteColor, vignette*EVignetteAmount);
+
+	res.w=1.0;
+	return res;
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////SA_DirectX/////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+technique PostProcess
+{
+pass P0
+	{
+		VertexShader = compile vs_3_0 VS_PostProcess();
+		PixelShader  = compile ps_3_0 PS_PostProcess2();
+	}
+}
+
+technique PostProcess2
+{	
+	pass P0
+	{
+		VertexShader = compile vs_3_0 VS_PostProcessFXAA();
+		PixelShader  = compile ps_3_0 FXAA();
+	}
+}
+
+technique PostProcess3
+{	
+	pass P0
+	{
+		VertexShader = compile vs_3_0 VS_PostProcess();
+		PixelShader  = compile ps_3_0 PS_Vignette();
+	}
+}
